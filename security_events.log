@@ -1,0 +1,8 @@
+{"timestamp": "2026-10-27T22:22:38Z", "source": "UFW-Firewall", "event_id": "4041", "source_ip": "192.168.1.50", "description": "Port scan attempt blocked", "severity": "High"}
+{"timestamp": "2026-10-27T22:26:05Z", "source": "UFW-Firewall", "event_id": "4041", "source_ip": "192.168.1.50", "description": "Port scan attempt blocked", "severity": "High"}
+{"timestamp": "2026-10-27T22:27:41Z", "source": "UFW-Firewall", "event_id": "4041", "source_ip": "192.168.1.50", "description": "Port scan attempt blocked", "severity": "High"}
+{"timestamp": "2026-10-27T22:30:53Z", "source": "UFW-Firewall", "event_id": "4041", "source_ip": "192.168.1.50", "description": "Port scan attempt blocked", "severity": "High"}
+{"timestamp": "2026-10-27T22:31:09Z", "source": "UFW-Firewall", "event_id": "4041", "source_ip": "192.168.1.50", "description": "Port scan attempt blocked", "severity": "High"}
+{"timestamp": "2026-10-27T22:32:52Z", "source": "UFW-Firewall", "event_id": "4041", "source_ip": "192.168.1.50", "description": "Port scan attempt blocked", "severity": "High"}
+{"timestamp": "2026-10-27T22:39:54Z", "event_type": "SECURITY_SCAN_EVENT", "status": "SUCCESS"}
+{"timestamp": "2026-10-28T05:54:29Z", "event_type": "SECURITY_SCAN_EVENT", "status": "SUCCESS"}

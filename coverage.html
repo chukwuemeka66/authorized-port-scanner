@@ -1,0 +1,1523 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">C:\Users\USER\authorized-port-scanner\Ovim authorised port scanner.go (0.0%)</option>
+				
+				<option value="file1">C:\Users\USER\authorized-port-scanner\carver.go (80.0%)</option>
+				
+				<option value="file2">C:\Users\USER\authorized-port-scanner\file_validation.go (100.0%)</option>
+				
+				<option value="file3">C:\Users\USER\authorized-port-scanner\main.go (15.5%)</option>
+				
+				<option value="file4">C:\Users\USER\authorized-port-scanner\nodezero.go (69.4%)</option>
+				
+				<option value="file5">C:\Users\USER\authorized-port-scanner\scanner.go (0.0%)</option>
+				
+				<option value="file6">C:\Users\USER\authorized-port-scanner\splunk_ship.go (78.3%)</option>
+				
+				<option value="file7">C:\Users\USER\authorized-port-scanner\tracking.go (85.5%)</option>
+				
+				<option value="file8">C:\Users\USER\authorized-port-scanner\xbow.go (69.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "fmt"
+        "net"
+        "sync"
+        "time"
+)
+
+// worker picks ports from the jobs channel and tests connectivity.
+func scanWorker(_ int, ports &lt;-chan int, results chan&lt;- string, targetHost string) {
+        <span class="cov0" title="0">for port := range ports </span>{
+                <span class="cov0" title="0">address := fmt.Sprintf("%s:%d", targetHost, port)
+                conn, err := net.DialTimeout("tcp", address, time.Second)
+                if err != nil </span>{
+                        <span class="cov0" title="0">results &lt;- fmt.Sprintf("[-] Port %d: CLOSED", port)
+                        continue</span>
+                }
+                <span class="cov0" title="0">conn.Close()
+                results &lt;- fmt.Sprintf("[+] Port %d: OPEN", port)</span>
+        }
+}
+
+// RunPortScan scans an authorized target over the requested port range.
+func RunAuthorizedPortScan(targetHost string, startPort, endPort int, workerCount int) {
+        <span class="cov0" title="0">ports := make(chan int, 100)
+        results := make(chan string, 100)
+</span>
+        <span class="cov0" title="0">var wg sync.WaitGroup
+</span>
+        <span class="cov0" title="0">for workerID := 1; workerID &lt;= workerCount; workerID++ </span>{
+                <span class="cov0" title="0">wg.Add(1)
+                go func(id int) </span>{
+                        <span class="cov0" title="0">defer wg.Done()
+                        scanWorker(id, ports, results, targetHost)
+</span>                }(workerID)
+        }
+
+        <span class="cov0" title="0">go func() </span>{
+                <span class="cov0" title="0">for port := startPort; port &lt;= endPort; port++ </span>{
+                        <span class="cov0" title="0">ports &lt;- port
+</span>                }
+                <span class="cov0" title="0">close(ports)</span>
+        }()
+
+        <span class="cov0" title="0">go func() </span>{
+                <span class="cov0" title="0">wg.Wait()
+                close(results)
+</span>        }()
+
+        <span class="cov0" title="0">fmt.Printf("[*] Starting concurrent scan on host: %s (Ports %d-%d)\n", targetHost, startPort, endPort)
+        for result := range results </span>{
+                <span class="cov0" title="0">fmt.Println(result)
+</span>        }
+        <span class="cov0" title="0">fmt.Println("[*] Port scan completed.")</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package main
+
+import (
+        "bytes"
+        "crypto/sha256"
+        "encoding/hex"
+        "fmt"
+        "io"
+        "os"
+        "path/filepath"
+        "time"
+)
+
+const (
+        defaultCarveBufferSize = 1 &lt;&lt; 20
+        maxCarveBufferSize     = 16 &lt;&lt; 20
+        defaultMaxELFSize      = 15 &lt;&lt; 20
+)
+
+type CarveConfig struct {
+        ImageFilePath string
+        OutputFolder  string
+        BufferSize    int64
+        MaxELFSize    int64
+}
+
+type MagicNumber struct {
+        Extension string
+        Header    []byte
+        Footer    []byte
+}
+
+type RecoveryEvent struct {
+        Timestamp     string `json:"timestamp"`
+        Source        string `json:"source"`
+        EventType     string `json:"event_type"`
+        FileType      string `json:"file_type"`
+        OffsetStart   int64  `json:"offset_start"`
+        FileSizeBytes int64  `json:"file_size_bytes"`
+        SHA256Hash    string `json:"sha256_hash"`
+}
+
+var knownSignatures = []MagicNumber{
+        {Extension: "jpg", Header: []byte{0xFF, 0xD8, 0xFF}, Footer: []byte{0xFF, 0xD9}},
+        {Extension: "png", Header: []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}, Footer: []byte{0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82}},
+        {Extension: "pdf", Header: []byte{0x25, 0x50, 0x44, 0x46}, Footer: []byte{0x25, 0x25, 0x45, 0x4F, 0x46}},
+        {Extension: "zip", Header: []byte{0x50, 0x4B, 0x03, 0x04}, Footer: []byte{0x50, 0x4B, 0x05, 0x06}},
+        {Extension: "elf", Header: []byte{0x7F, 0x45, 0x4C, 0x46}},
+}
+
+// RunCarver scans a regular disk-image file without modifying it and writes
+// recovered files to a separate output directory.
+func RunCarver(config CarveConfig) ([]RecoveryEvent, error) {
+        <span class="cov8" title="1">if config.ImageFilePath == "" || config.OutputFolder == "" </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("image file and output folder are required")
+</span>        }
+        <span class="cov8" title="1">if config.BufferSize == 0 </span>{
+                <span class="cov8" title="1">config.BufferSize = defaultCarveBufferSize
+</span>        }
+        <span class="cov8" title="1">if config.BufferSize &lt; 1 || config.BufferSize &gt; maxCarveBufferSize </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("buffer size must be between 1 byte and %d bytes", maxCarveBufferSize)
+</span>        }
+        <span class="cov8" title="1">if config.MaxELFSize == 0 </span>{
+                <span class="cov8" title="1">config.MaxELFSize = defaultMaxELFSize
+</span>        }
+        <span class="cov8" title="1">if config.MaxELFSize &lt; 1 </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("maximum ELF size must be positive")
+</span>        }
+
+        <span class="cov8" title="1">imagePath, err := filepath.Abs(config.ImageFilePath)
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("resolve image path: %w", err)
+</span>        }
+        <span class="cov8" title="1">image, err := os.Open(imagePath)
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("open image file: %w", err)
+</span>        }
+        <span class="cov8" title="1">defer image.Close()
+</span>
+        <span class="cov8" title="1">imageInfo, err := image.Stat()
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("inspect image file: %w", err)
+</span>        }
+        <span class="cov8" title="1">if !imageInfo.Mode().IsRegular() </span>{
+                <span class="cov8" title="1">return nil, fmt.Errorf("image path must refer to a regular file")
+</span>        }
+        <span class="cov8" title="1">imagePath, err = filepath.EvalSymlinks(imagePath)
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("resolve image file: %w", err)
+</span>        }
+
+        <span class="cov8" title="1">outputPath, err := filepath.Abs(config.OutputFolder)
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("resolve output folder: %w", err)
+</span>        }
+        <span class="cov8" title="1">if err := os.MkdirAll(outputPath, 0700); err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("create output folder: %w", err)
+</span>        }
+        <span class="cov8" title="1">outputPath, err = filepath.EvalSymlinks(outputPath)
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("resolve output folder: %w", err)
+</span>        }
+        <span class="cov8" title="1">if filepath.Clean(outputPath) == filepath.Dir(imagePath) </span>{
+                <span class="cov8" title="1">return nil, fmt.Errorf("output folder must be separate from the image folder")
+</span>        }
+
+        <span class="cov8" title="1">return carveImage(image, imageInfo.Size(), outputPath, config)</span>
+}
+
+func carveImage(image *os.File, imageSize int64, outputFolder string, config CarveConfig) ([]RecoveryEvent, error) {
+        <span class="cov8" title="1">var events []RecoveryEvent
+        for _, signature := range knownSignatures </span>{
+                <span class="cov8" title="1">if signature.Footer != nil </span>{
+                        <span class="cov8" title="1">carved, err := carveFooterTerminatedFiles(image, imageSize, outputFolder, signature, config.BufferSize)
+                        if err != nil </span>{
+                                <span class="cov0" title="0">return events, err
+</span>                        }
+                        <span class="cov8" title="1">events = append(events, carved...)
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">patterns := [][]byte{signature.Header}
+                searchFrom := int64(0)
+                for searchFrom &lt; imageSize </span>{
+                        <span class="cov8" title="1">start, _, found, err := findNextPattern(image, patterns, searchFrom, imageSize, config.BufferSize)
+                        if err != nil </span>{
+                                <span class="cov0" title="0">return events, fmt.Errorf("scan for %s header: %w", signature.Extension, err)
+</span>                        }
+                        <span class="cov8" title="1">if !found </span>{
+                                <span class="cov8" title="1">break</span>
+                        }
+
+                        <span class="cov8" title="1">end := start + config.MaxELFSize
+                        if end &gt; imageSize </span>{
+                                <span class="cov8" title="1">end = imageSize
+</span>                        }
+
+                        <span class="cov8" title="1">event, err := writeCarvedFile(image, outputFolder, signature.Extension, start, end)
+                        if err != nil </span>{
+                                <span class="cov0" title="0">return events, err
+</span>                        }
+                        <span class="cov8" title="1">events = append(events, event)
+                        searchFrom = end</span>
+                }
+        }
+        <span class="cov8" title="1">return events, nil</span>
+}
+
+func carveFooterTerminatedFiles(image *os.File, imageSize int64, outputFolder string, signature MagicNumber, bufferSize int64) ([]RecoveryEvent, error) {
+        <span class="cov8" title="1">var events []RecoveryEvent
+        patterns := [][]byte{signature.Header, signature.Footer}
+        var pendingStart int64 = -1
+        searchFrom := int64(0)
+</span>
+        <span class="cov8" title="1">for searchFrom &lt; imageSize </span>{
+                <span class="cov8" title="1">offset, patternIndex, found, err := findNextPattern(image, patterns, searchFrom, imageSize, bufferSize)
+                if err != nil </span>{
+                        <span class="cov0" title="0">return events, fmt.Errorf("scan %s signatures: %w", signature.Extension, err)
+</span>                }
+                <span class="cov8" title="1">if !found </span>{
+                        <span class="cov8" title="1">break</span>
+                }
+                <span class="cov8" title="1">if patternIndex == 0 </span>{
+                        <span class="cov8" title="1">if pendingStart &lt; 0 </span>{
+                                <span class="cov8" title="1">pendingStart = offset
+</span>                        }
+                } else <span class="cov8" title="1">if pendingStart &gt;= 0 </span>{
+                        <span class="cov8" title="1">end := offset + int64(len(signature.Footer))
+                        event, err := writeCarvedFile(image, outputFolder, signature.Extension, pendingStart, end)
+                        if err != nil </span>{
+                                <span class="cov0" title="0">return events, err
+</span>                        }
+                        <span class="cov8" title="1">events = append(events, event)
+                        pendingStart = -1</span>
+                }
+                <span class="cov8" title="1">searchFrom = offset + int64(len(patterns[patternIndex]))</span>
+        }
+        <span class="cov8" title="1">return events, nil</span>
+}
+
+func findNextPattern(image *os.File, patterns [][]byte, start, imageSize, bufferSize int64) (int64, int, bool, error) {
+        <span class="cov8" title="1">maxPatternLength := 0
+        for _, pattern := range patterns </span>{
+                <span class="cov8" title="1">if len(pattern) == 0 </span>{
+                        <span class="cov0" title="0">return 0, 0, false, fmt.Errorf("patterns must not be empty")
+</span>                }
+                <span class="cov8" title="1">if len(pattern) &gt; maxPatternLength </span>{
+                        <span class="cov8" title="1">maxPatternLength = len(pattern)
+</span>                }
+        }
+
+        <span class="cov8" title="1">buffer := make([]byte, int(bufferSize))
+        var carry []byte
+        offset := start
+        for offset &lt; imageSize </span>{
+                <span class="cov8" title="1">readSize := int64(len(buffer))
+                if remaining := imageSize - offset; remaining &lt; readSize </span>{
+                        <span class="cov8" title="1">readSize = remaining
+</span>                }
+                <span class="cov8" title="1">n, readErr := image.ReadAt(buffer[:int(readSize)], offset)
+                if n &gt; 0 </span>{
+                        <span class="cov8" title="1">chunk := buffer[:n]
+                        combined := make([]byte, len(carry)+len(chunk))
+                        copy(combined, carry)
+                        copy(combined[len(carry):], chunk)
+                        bestIndex, bestPattern := -1, -1
+                        for i, pattern := range patterns </span>{
+                                <span class="cov8" title="1">if index := bytes.Index(combined, pattern); index &gt;= 0 &amp;&amp; (bestIndex &lt; 0 || index &lt; bestIndex) </span>{
+                                        <span class="cov8" title="1">bestIndex, bestPattern = index, i
+</span>                                }
+                        }
+                        <span class="cov8" title="1">if bestIndex &gt;= 0 </span>{
+                                <span class="cov8" title="1">return offset - int64(len(carry)) + int64(bestIndex), bestPattern, true, nil
+</span>                        }
+
+                        <span class="cov8" title="1">carrySize := maxPatternLength - 1
+                        if carrySize &gt; len(combined) </span>{
+                                <span class="cov8" title="1">carrySize = len(combined)
+</span>                        }
+                        <span class="cov8" title="1">carry = append(carry[:0], combined[len(combined)-carrySize:]...)
+                        offset += int64(n)</span>
+                }
+                <span class="cov8" title="1">if readErr != nil </span>{
+                        <span class="cov0" title="0">if readErr == io.EOF </span>{
+                                <span class="cov0" title="0">return 0, 0, false, nil
+</span>                        }
+                        <span class="cov0" title="0">return 0, 0, false, readErr</span>
+                }
+                <span class="cov8" title="1">if n == 0 </span>{
+                        <span class="cov0" title="0">return 0, 0, false, nil
+</span>                }
+        }
+        <span class="cov8" title="1">return 0, 0, false, nil</span>
+}
+
+func writeCarvedFile(image *os.File, outputFolder, extension string, start, end int64) (RecoveryEvent, error) {
+        <span class="cov8" title="1">size := end - start
+        if size &lt;= 0 </span>{
+                <span class="cov0" title="0">return RecoveryEvent{}, fmt.Errorf("invalid %s carve range at offset %d", extension, start)
+</span>        }
+        <span class="cov8" title="1">outputPath := filepath.Join(outputFolder, fmt.Sprintf("recovered_%s_%012d.%s", extension, start, extension))
+        output, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+        if err != nil </span>{
+                <span class="cov0" title="0">return RecoveryEvent{}, fmt.Errorf("create recovered file at offset %d: %w", start, err)
+</span>        }
+
+        <span class="cov8" title="1">hash := sha256.New()
+        reader := io.NewSectionReader(image, start, size)
+        _, copyErr := io.CopyN(io.MultiWriter(output, hash), reader, size)
+        closeErr := output.Close()
+        if copyErr != nil </span>{
+                <span class="cov0" title="0">if removeErr := os.Remove(outputPath); removeErr != nil </span>{
+                        <span class="cov0" title="0">return RecoveryEvent{}, fmt.Errorf("write recovered file at offset %d: %w (also failed to remove partial file: %v)", start, copyErr, removeErr)
+</span>                }
+                <span class="cov0" title="0">return RecoveryEvent{}, fmt.Errorf("write recovered file at offset %d: %w", start, copyErr)</span>
+        }
+        <span class="cov8" title="1">if closeErr != nil </span>{
+                <span class="cov0" title="0">if removeErr := os.Remove(outputPath); removeErr != nil </span>{
+                        <span class="cov0" title="0">return RecoveryEvent{}, fmt.Errorf("close recovered file at offset %d: %w (also failed to remove partial file: %v)", start, closeErr, removeErr)
+</span>                }
+                <span class="cov0" title="0">return RecoveryEvent{}, fmt.Errorf("close recovered file at offset %d: %w", start, closeErr)</span>
+        }
+
+        <span class="cov8" title="1">return RecoveryEvent{
+                Timestamp:     time.Now().UTC().Format(time.RFC3339),
+                Source:        "Ovim-Gallery-Carver",
+                EventType:     "file_recovered",
+                FileType:      extension,
+                OffsetStart:   start,
+                FileSizeBytes: size,
+                SHA256Hash:    hex.EncodeToString(hash.Sum(nil)),
+        }, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package main
+
+import "fmt"
+
+// ValidateJPEG checks the JPEG start and end markers. The 15 MB size guidance
+// is not enforced as a hard limit.
+func ValidateJPEG(data []byte) error {
+        <span class="cov8" title="1">if len(data) &lt; 4 </span>{
+                <span class="cov8" title="1">return fmt.Errorf("JPEG data is too short")
+</span>        }
+        <span class="cov8" title="1">if data[0] != 0xFF || data[1] != 0xD8 || data[2] != 0xFF </span>{
+                <span class="cov8" title="1">return fmt.Errorf("invalid JPEG header")
+</span>        }
+        <span class="cov8" title="1">if data[len(data)-2] != 0xFF || data[len(data)-1] != 0xD9 </span>{
+                <span class="cov8" title="1">return fmt.Errorf("invalid JPEG footer")
+</span>        }
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package main
+
+import (
+        "bytes"
+        "encoding/json"
+        "flag"
+        "fmt"
+        "log"
+        "net/http"
+        "os"
+        "time"
+)
+
+type SecurityEvent struct {
+        Timestamp string `json:"timestamp"`
+        EventType string `json:"event_type"`
+        Status    string `json:"status"`
+}
+
+type hecEvent struct {
+        Time       int64         `json:"time"`
+        Host       string        `json:"host"`
+        Sourcetype string        `json:"sourcetype"`
+        Event      SecurityEvent `json:"event"`
+}
+
+// sendLog transmits a JSON payload to the Splunk HEC endpoint with retry logic and token auth.
+func sendLog(target, token string, client *http.Client, payload []byte) (*http.Response, error) {
+        <span class="cov8" title="1">var lastErr error
+</span>
+        <span class="cov8" title="1">for attempt := 1; attempt &lt;= 3; attempt++ </span>{
+                <span class="cov8" title="1">req, err := http.NewRequest(http.MethodPost, target, bytes.NewBuffer(payload))
+                if err != nil </span>{
+                        <span class="cov0" title="0">return nil, err
+</span>                }
+                // Set required headers for Splunk HEC.
+                <span class="cov8" title="1">req.Header.Set("Content-Type", "application/json")
+                if token != "" </span>{
+                        <span class="cov8" title="1">req.Header.Set("Authorization", "Splunk "+token)
+</span>                }
+
+                <span class="cov8" title="1">resp, err := client.Do(req)
+                if err == nil &amp;&amp; resp.StatusCode == http.StatusOK </span>{
+                        <span class="cov8" title="1">return resp, nil
+</span>                }
+
+                <span class="cov0" title="0">if resp != nil </span>{
+                        <span class="cov0" title="0">lastErr = fmt.Errorf("unexpected response status: %s", resp.Status)
+                        resp.Body.Close()
+</span>                } else {
+                        <span class="cov0" title="0">lastErr = err
+</span>                }
+
+                <span class="cov0" title="0">fmt.Printf("[!] Attempt %d failed. Retrying in %d seconds...\n", attempt, attempt*2)
+                time.Sleep(time.Duration(attempt*2) * time.Second)</span>
+        }
+
+        <span class="cov0" title="0">return nil, lastErr</span>
+}
+
+// SendLogToSplunkHEC sends a security event to the Splunk HEC event endpoint.
+func SendLogToSplunkHEC(splunkURL, hecToken, eventType, status string) (*http.Response, error) {
+        <span class="cov8" title="1">now := time.Now().UTC()
+        payload, err := json.Marshal(hecEvent{
+                Time:       now.Unix(),
+                Host:       "local-scanner-node",
+                Sourcetype: "ovimscannerjson",
+                Event: SecurityEvent{
+                        Timestamp: now.Format(time.RFC3339),
+                        EventType: eventType,
+                        Status:    status,
+                },
+        })
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("failed to marshal HEC payload: %w", err)
+</span>        }
+
+        <span class="cov8" title="1">client := &amp;http.Client{Timeout: 10 * time.Second}
+        return sendLog(splunkURL, hecToken, client, payload)</span>
+}
+
+func envOrDefault(name, fallback string) string {
+        <span class="cov0" title="0">if value := os.Getenv(name); value != "" </span>{
+                <span class="cov0" title="0">return value
+</span>        }
+        <span class="cov0" title="0">return fallback</span>
+}
+
+func main() {
+        // 1. Define command-line flags for dynamic configuration
+        <span class="cov0" title="0">targetFlag := flag.String("target", envOrDefault("SPLUNK_HEC_URL", "https://localhost:8088/services/collector"), "Splunk HEC event endpoint")
+        hecTokenFlag := flag.String("token", envOrDefault("SPLUNK_HEC_TOKEN", "YOUR_SPLUNK_HEC_TOKEN"), "Splunk HEC Authorization Token")
+        xbowFindingsFlag := flag.Bool("xbow-findings", false, "Fetch and log XBOW findings (requires XBOW_API_KEY and XBOW_ASSET_ID)")
+        xbowAssetIDFlag := flag.String("xbow-asset-id", os.Getenv("XBOW_ASSET_ID"), "XBOW asset ID (defaults to XBOW_ASSET_ID)")
+        nodeZeroPathsFlag := flag.Bool("nodezero-findings", false, "Fetch and log NodeZero attack paths (requires H3_API_KEY)")
+        nodeZeroToSplunkFlag := flag.Bool("nodezero-to-splunk", false, "Fetch NodeZero attack-path metadata and send it to Splunk HEC")
+        trackingServerFlag := flag.Bool("tracking-server", false, "Start a loopback-only tracking endpoint at 127.0.0.1:8080/track")
+        carveImageFlag := flag.String("carve-image", "", "Scan a regular image file for recoverable files")
+        carveOutputFlag := flag.String("carve-output", "", "Output directory for recovered files (must differ from image directory)")
+        carveELFMaxBytesFlag := flag.Int64("carve-elf-max-bytes", defaultMaxELFSize, "Maximum bytes to carve per ELF file")
+        flag.Parse()
+</span>
+        <span class="cov0" title="0">carveSelected := *carveImageFlag != "" || *carveOutputFlag != ""
+        if carveSelected &amp;&amp; (*carveImageFlag == "" || *carveOutputFlag == "") </span>{
+                <span class="cov0" title="0">log.Fatal("[-] -carve-image and -carve-output must be provided together")
+</span>        }
+        <span class="cov0" title="0">selectedIntegrations := 0
+        for _, selected := range []bool{*xbowFindingsFlag, *nodeZeroPathsFlag, *nodeZeroToSplunkFlag, *trackingServerFlag, carveSelected} </span>{
+                <span class="cov0" title="0">if selected </span>{
+                        <span class="cov0" title="0">selectedIntegrations++
+</span>                }
+        }
+        <span class="cov0" title="0">if selectedIntegrations &gt; 1 </span>{
+                <span class="cov0" title="0">log.Fatal("[-] Choose only one security findings integration per run")
+</span>        }
+
+        <span class="cov0" title="0">if *xbowFindingsFlag </span>{
+                <span class="cov0" title="0">client := NewXBOWClient(os.Getenv("XBOW_API_KEY"))
+                findings, err := client.FetchAndLogFindings(*xbowAssetIDFlag)
+                if err != nil </span>{
+                        <span class="cov0" title="0">log.Fatalf("[-] Failed to fetch XBOW findings: %v", err)
+</span>                }
+                <span class="cov0" title="0">log.Printf("[+] Logged %d XBOW findings for asset %s", len(findings), *xbowAssetIDFlag)
+                return</span>
+        }
+        <span class="cov0" title="0">if *nodeZeroPathsFlag </span>{
+                <span class="cov0" title="0">log.Println("Initializing NodeZero security telemetry collector...")
+                client := NewNodeZeroClient()
+                paths, err := client.FetchAndLogAttackPaths()
+                if err != nil </span>{
+                        <span class="cov0" title="0">log.Fatalf("Failed to fetch and log NodeZero attack paths: %v", err)
+</span>                }
+                <span class="cov0" title="0">log.Printf("Successfully processed and logged %d attack paths.", len(paths))
+                return</span>
+        }
+        <span class="cov0" title="0">if *nodeZeroToSplunkFlag </span>{
+                <span class="cov0" title="0">log.Println("Fetching NodeZero attack-path metadata...")
+                client := NewNodeZeroClient()
+                paths, err := client.FetchDetailedAttackPaths()
+                if err != nil </span>{
+                        <span class="cov0" title="0">log.Fatalf("[-] Failed to fetch NodeZero attack paths: %v", err)
+</span>                }
+                <span class="cov0" title="0">if err := ShipAttackPathsToSplunk(paths); err != nil </span>{
+                        <span class="cov0" title="0">log.Fatalf("[-] Failed to ship NodeZero attack paths to Splunk: %v", err)
+</span>                }
+                <span class="cov0" title="0">log.Printf("[+] Shipped %d NodeZero attack paths to Splunk", len(paths))
+                return</span>
+        }
+        <span class="cov0" title="0">if *trackingServerFlag </span>{
+                <span class="cov0" title="0">log.Println("Starting tracking endpoint at http://127.0.0.1:8080/track")
+                if err := http.ListenAndServe("127.0.0.1:8080", newTrackingHandler()); err != nil </span>{
+                        <span class="cov0" title="0">log.Fatalf("[-] Tracking server failed: %v", err)
+</span>                }
+                <span class="cov0" title="0">return</span>
+        }
+        <span class="cov0" title="0">if carveSelected </span>{
+                <span class="cov0" title="0">events, carveErr := RunCarver(CarveConfig{
+                        ImageFilePath: *carveImageFlag,
+                        OutputFolder:  *carveOutputFlag,
+                        MaxELFSize:    *carveELFMaxBytesFlag,
+                })
+                shipErr := ShipRecoveryEventsToSplunk(events)
+                if carveErr != nil </span>{
+                        <span class="cov0" title="0">if shipErr != nil </span>{
+                                <span class="cov0" title="0">log.Printf("[-] Failed to ship partial recovery metadata: %v", shipErr)
+</span>                        }
+                        <span class="cov0" title="0">log.Fatalf("[-] File carving failed: %v", carveErr)</span>
+                }
+                <span class="cov0" title="0">if shipErr != nil </span>{
+                        <span class="cov0" title="0">log.Fatalf("[-] Failed to ship recovery events to Splunk: %v", shipErr)
+</span>                }
+                <span class="cov0" title="0">if len(events) == 0 </span>{
+                        <span class="cov0" title="0">log.Println("[+] No recoverable files found")
+                        return
+</span>                }
+                <span class="cov0" title="0">log.Printf("[+] Recovered %d files and shipped recovery metadata", len(events))
+                return</span>
+        }
+
+        <span class="cov0" title="0">fmt.Printf("[*] Initializing log transmission to target: %s\n", *targetFlag)
+</span>
+        // 2. Send the security event directly to Splunk HEC with retry and backoff.
+        <span class="cov0" title="0">resp, err := SendLogToSplunkHEC(*targetFlag, *hecTokenFlag, "SECURITY_SCAN_EVENT", "SUCCESS")
+        if err != nil </span>{
+                <span class="cov0" title="0">log.Fatalf("[-] Failed to send log after all attempts: %v", err)
+</span>        }
+        <span class="cov0" title="0">defer resp.Body.Close()
+</span>
+        <span class="cov0" title="0">fmt.Printf("[+] Successfully sent log to Splunk. Response Status: %s\n", resp.Status)</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package main
+
+import (
+        "bytes"
+        "encoding/json"
+        "fmt"
+        "io"
+        "net"
+        "net/http"
+        "net/url"
+        "os"
+        "strings"
+        "time"
+)
+
+const maxNodeZeroResponseBytes = 5 &lt;&lt; 20
+
+const nodeZeroAttackPathsQuery = `query {
+        attackPaths {
+                id
+                severity
+                attackPathTitle
+                ipAddress
+                hostName
+        }
+}`
+
+type NodeZeroClient struct {
+        AuthURL    string
+        GraphQLURL string
+        APIKey     string
+        HTTPClient *http.Client
+        LogPath    string
+}
+
+type AuthResponse struct {
+        Token string `json:"token"`
+}
+
+type AuthRequest struct {
+        Key string `json:"key"`
+}
+
+type GraphQLRequest struct {
+        Query     string         `json:"query"`
+        Variables map[string]any `json:"variables,omitempty"`
+}
+
+type NodeZeroAttackPath struct {
+        ID              string `json:"id"`
+        Severity        string `json:"severity"`
+        AttackPathTitle string `json:"attackPathTitle"`
+        IPAddress       string `json:"ipAddress"`
+        HostName        string `json:"hostName"`
+}
+
+type StartAssessmentResponse struct {
+        AssessmentID string `json:"assessment_id"`
+        Status       string `json:"status"`
+}
+
+type DetailedAttackPath struct {
+        ID              string `json:"id"`
+        Severity        string `json:"severity"`
+        AttackPathTitle string `json:"attackPathTitle"`
+        IPAddress       string `json:"ipAddress"`
+        HostName        string `json:"hostName"`
+        Timestamp       string `json:"timestamp"`
+}
+
+type detailedNodeZeroGraphQLResponse struct {
+        Data struct {
+                AttackPaths []DetailedAttackPath `json:"attackPaths"`
+        } `json:"data"`
+        Errors []struct {
+                Message string `json:"message"`
+        } `json:"errors"`
+}
+
+type nodeZeroGraphQLResponse struct {
+        Data struct {
+                AttackPaths []NodeZeroAttackPath `json:"attackPaths"`
+        } `json:"data"`
+        Errors []struct {
+                Message string `json:"message"`
+        } `json:"errors"`
+}
+
+type nodeZeroLogEntry struct {
+        Timestamp       string `json:"timestamp"`
+        Source          string `json:"source"`
+        EventID         string `json:"event_id"`
+        Severity        string `json:"severity"`
+        AttackPathTitle string `json:"attack_path_title"`
+        IPAddress       string `json:"ip_address"`
+        HostName        string `json:"host_name"`
+}
+
+func NewNodeZeroClient() *NodeZeroClient {
+        <span class="cov8" title="1">authURL := os.Getenv("H3_AUTH_URL")
+        if authURL == "" </span>{
+                <span class="cov8" title="1">authURL = "https://api.gateway.horizon3ai.com/v1/auth"
+</span>        }
+        <span class="cov8" title="1">graphQLURL := os.Getenv("H3_GRAPHQL_URL")
+        if graphQLURL == "" </span>{
+                <span class="cov8" title="1">graphQLURL = "https://api.gateway.horizon3ai.com/v1/graphql"
+</span>        }
+        <span class="cov8" title="1">return &amp;NodeZeroClient{
+                AuthURL:    authURL,
+                GraphQLURL: graphQLURL,
+                APIKey:     os.Getenv("H3_API_KEY"),
+                HTTPClient: &amp;http.Client{
+                        Timeout: 15 * time.Second,
+                        CheckRedirect: func(_ *http.Request, _ []*http.Request) error </span>{
+                                <span class="cov0" title="0">return http.ErrUseLastResponse
+</span>                        },
+                },
+                LogPath: "security_events.log",
+        }
+}
+
+func validateNodeZeroURL(rawURL string) error {
+        <span class="cov8" title="1">parsed, err := url.Parse(rawURL)
+        if err != nil </span>{
+                <span class="cov0" title="0">return fmt.Errorf("invalid NodeZero URL: %w", err)
+</span>        }
+        <span class="cov8" title="1">if parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" ||
+                parsed.ForceQuery || parsed.Fragment != "" </span>{
+                <span class="cov8" title="1">return fmt.Errorf("invalid NodeZero URL")
+</span>        }
+        <span class="cov8" title="1">if parsed.Scheme == "https" </span>{
+                <span class="cov0" title="0">return nil
+</span>        }
+        <span class="cov8" title="1">if parsed.Scheme == "http" </span>{
+                <span class="cov8" title="1">host := parsed.Hostname()
+                if strings.EqualFold(host, "localhost") </span>{
+                        <span class="cov8" title="1">return nil
+</span>                }
+                <span class="cov8" title="1">if ip := net.ParseIP(host); ip != nil &amp;&amp; ip.Equal(net.IPv4(127, 0, 0, 1)) </span>{
+                        <span class="cov8" title="1">return nil
+</span>                }
+        }
+        <span class="cov8" title="1">return fmt.Errorf("NodeZero URLs must use HTTPS (HTTP is allowed only for loopback tests)")</span>
+}
+
+func (c *NodeZeroClient) postJSON(endpoint string, payload any, bearerToken string) ([]byte, error) {
+        <span class="cov8" title="1">if err := validateNodeZeroURL(endpoint); err != nil </span>{
+                <span class="cov0" title="0">return nil, err
+</span>        }
+        <span class="cov8" title="1">body, err := json.Marshal(payload)
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("encode NodeZero request: %w", err)
+</span>        }
+        <span class="cov8" title="1">req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("create NodeZero request: %w", err)
+</span>        }
+        <span class="cov8" title="1">req.Header.Set("Content-Type", "application/json")
+        req.Header.Set("Accept", "application/json")
+        if bearerToken != "" </span>{
+                <span class="cov8" title="1">req.Header.Set("Authorization", "Bearer "+bearerToken)
+</span>        }
+
+        <span class="cov8" title="1">resp, err := c.HTTPClient.Do(req)
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("send NodeZero request: %w", err)
+</span>        }
+        <span class="cov8" title="1">defer resp.Body.Close()
+        if resp.StatusCode &lt; http.StatusOK || resp.StatusCode &gt;= http.StatusMultipleChoices </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("NodeZero request returned HTTP status %s", resp.Status)
+</span>        }
+        <span class="cov8" title="1">responseBody, err := io.ReadAll(io.LimitReader(resp.Body, maxNodeZeroResponseBytes+1))
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("read NodeZero response: %w", err)
+</span>        }
+        <span class="cov8" title="1">if len(responseBody) &gt; maxNodeZeroResponseBytes </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("NodeZero response exceeds %d bytes", maxNodeZeroResponseBytes)
+</span>        }
+        <span class="cov8" title="1">return responseBody, nil</span>
+}
+
+func (c *NodeZeroClient) Authenticate() (string, error) {
+        <span class="cov8" title="1">if strings.TrimSpace(c.APIKey) == "" </span>{
+                <span class="cov0" title="0">return "", fmt.Errorf("H3_API_KEY is required")
+</span>        }
+        <span class="cov8" title="1">if c.HTTPClient == nil </span>{
+                <span class="cov0" title="0">return "", fmt.Errorf("NodeZero HTTP client is not configured")
+</span>        }
+
+        <span class="cov8" title="1">responseBody, err := c.postJSON(c.AuthURL, AuthRequest{Key: c.APIKey}, "")
+        if err != nil </span>{
+                <span class="cov0" title="0">return "", fmt.Errorf("authenticate with NodeZero: %w", err)
+</span>        }
+        <span class="cov8" title="1">var authResponse AuthResponse
+        if err := json.Unmarshal(responseBody, &amp;authResponse); err != nil </span>{
+                <span class="cov0" title="0">return "", fmt.Errorf("decode NodeZero authentication response: %w", err)
+</span>        }
+        <span class="cov8" title="1">if strings.TrimSpace(authResponse.Token) == "" </span>{
+                <span class="cov0" title="0">return "", fmt.Errorf("NodeZero authentication response did not contain a token")
+</span>        }
+        <span class="cov8" title="1">return authResponse.Token, nil</span>
+}
+
+// FetchAndLogAttackPaths reads attack paths and appends each result as JSONL.
+func (c *NodeZeroClient) FetchAndLogAttackPaths() ([]NodeZeroAttackPath, error) {
+        <span class="cov8" title="1">if c.HTTPClient == nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("NodeZero HTTP client is not configured")
+</span>        }
+        <span class="cov8" title="1">token, err := c.Authenticate()
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, err
+</span>        }
+
+        <span class="cov8" title="1">responseBody, err := c.postJSON(c.GraphQLURL, GraphQLRequest{Query: nodeZeroAttackPathsQuery}, token)
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("fetch NodeZero attack paths: %w", err)
+</span>        }
+        <span class="cov8" title="1">var graphQLResponse nodeZeroGraphQLResponse
+        if err := json.Unmarshal(responseBody, &amp;graphQLResponse); err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("decode NodeZero GraphQL response: %w", err)
+</span>        }
+        <span class="cov8" title="1">if len(graphQLResponse.Errors) &gt; 0 </span>{
+                <span class="cov8" title="1">return nil, fmt.Errorf("NodeZero GraphQL query failed: %s", graphQLResponse.Errors[0].Message)
+</span>        }
+        <span class="cov8" title="1">if graphQLResponse.Data.AttackPaths == nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("NodeZero GraphQL response did not contain data.attackPaths")
+</span>        }
+
+        <span class="cov8" title="1">file, err := os.OpenFile(c.LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+        if err != nil </span>{
+                <span class="cov0" title="0">return graphQLResponse.Data.AttackPaths, fmt.Errorf("open security event log: %w", err)
+</span>        }
+        <span class="cov8" title="1">for _, path := range graphQLResponse.Data.AttackPaths </span>{
+                <span class="cov8" title="1">entry := nodeZeroLogEntry{
+                        Timestamp:       time.Now().UTC().Format(time.RFC3339),
+                        Source:          "NodeZero",
+                        EventID:         path.ID,
+                        Severity:        path.Severity,
+                        AttackPathTitle: path.AttackPathTitle,
+                        IPAddress:       path.IPAddress,
+                        HostName:        path.HostName,
+</span>                }
+                <span class="cov8" title="1">line, err := json.Marshal(entry)
+                if err != nil </span>{
+                        <span class="cov0" title="0">_ = file.Close()
+                        return graphQLResponse.Data.AttackPaths, fmt.Errorf("encode NodeZero attack path for security log: %w", err)
+</span>                }
+                <span class="cov8" title="1">line = append(line, '\n')
+                written, err := file.Write(line)
+                if err != nil </span>{
+                        <span class="cov0" title="0">_ = file.Close()
+                        return graphQLResponse.Data.AttackPaths, fmt.Errorf("write NodeZero attack path to security log: %w", err)
+</span>                }
+                <span class="cov8" title="1">if written != len(line) </span>{
+                        <span class="cov0" title="0">_ = file.Close()
+                        return graphQLResponse.Data.AttackPaths, fmt.Errorf("write NodeZero attack path to security log: %w", io.ErrShortWrite)
+</span>                }
+        }
+        <span class="cov8" title="1">if err := file.Close(); err != nil </span>{
+                <span class="cov0" title="0">return graphQLResponse.Data.AttackPaths, fmt.Errorf("close security event log: %w", err)
+</span>        }
+        <span class="cov8" title="1">return graphQLResponse.Data.AttackPaths, nil</span>
+}
+
+// FetchDetailedAttackPaths retrieves attack path metadata without payloads.
+func (c *NodeZeroClient) FetchDetailedAttackPaths() ([]DetailedAttackPath, error) {
+        <span class="cov8" title="1">if c.HTTPClient == nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("NodeZero HTTP client is not configured")
+</span>        }
+        <span class="cov8" title="1">token, err := c.Authenticate()
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, err
+</span>        }
+
+        <span class="cov8" title="1">query := `query {
+                attackPaths {
+                        id
+                        severity
+                        attackPathTitle
+                        ipAddress
+                        hostName
+                        timestamp
+                }
+        }`
+        responseBody, err := c.postJSON(c.GraphQLURL, GraphQLRequest{Query: query}, token)
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("fetch detailed NodeZero attack paths: %w", err)
+</span>        }
+
+        <span class="cov8" title="1">var graphQLResponse detailedNodeZeroGraphQLResponse
+        if err := json.Unmarshal(responseBody, &amp;graphQLResponse); err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("decode detailed NodeZero GraphQL response: %w", err)
+</span>        }
+        <span class="cov8" title="1">if len(graphQLResponse.Errors) &gt; 0 </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("NodeZero GraphQL query failed: %s", graphQLResponse.Errors[0].Message)
+</span>        }
+        <span class="cov8" title="1">if graphQLResponse.Data.AttackPaths == nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("NodeZero GraphQL response did not contain data.attackPaths")
+</span>        }
+        <span class="cov8" title="1">return graphQLResponse.Data.AttackPaths, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package main
+
+import (
+        "fmt"
+        "net"
+        "sync"
+        "time"
+)
+
+// worker picks ports from the jobs channel and tests connectivity.
+func scanPortWorker(_ int, ports &lt;-chan int, results chan&lt;- string, targetHost string) {
+        <span class="cov0" title="0">for port := range ports </span>{
+                <span class="cov0" title="0">address := fmt.Sprintf("%s:%d", targetHost, port)
+                conn, err := net.DialTimeout("tcp", address, time.Second)
+                if err != nil </span>{
+                        <span class="cov0" title="0">results &lt;- fmt.Sprintf("[-] Port %d: CLOSED", port)
+                        continue</span>
+                }
+                <span class="cov0" title="0">conn.Close()
+                results &lt;- fmt.Sprintf("[+] Port %d: OPEN", port)</span>
+        }
+}
+
+// RunPortScan scans an authorized target over the requested port range.
+func RunPortScan(targetHost string, startPort, endPort int, workerCount int) {
+        <span class="cov0" title="0">if startPort &gt; endPort </span>{
+                <span class="cov0" title="0">startPort, endPort = endPort, startPort
+</span>        }
+        <span class="cov0" title="0">if workerCount &lt;= 0 </span>{
+                <span class="cov0" title="0">workerCount = 1
+</span>        }
+
+        <span class="cov0" title="0">ports := make(chan int, 100)
+        results := make(chan string, 100)
+</span>
+        <span class="cov0" title="0">var wg sync.WaitGroup
+</span>
+        <span class="cov0" title="0">for workerID := 1; workerID &lt;= workerCount; workerID++ </span>{
+                <span class="cov0" title="0">wg.Add(1)
+                go func(id int) </span>{
+                        <span class="cov0" title="0">defer wg.Done()
+                        scanPortWorker(id, ports, results, targetHost)
+</span>                }(workerID)
+        }
+
+        <span class="cov0" title="0">go func() </span>{
+                <span class="cov0" title="0">defer close(ports)
+                for port := startPort; port &lt;= endPort; port++ </span>{
+                        <span class="cov0" title="0">ports &lt;- port
+</span>                }
+        }()
+
+        <span class="cov0" title="0">go func() </span>{
+                <span class="cov0" title="0">wg.Wait()
+                close(results)
+</span>        }()
+
+        <span class="cov0" title="0">fmt.Printf("[*] Starting concurrent scan on host: %s (Ports %d-%d)\n", targetHost, startPort, endPort)
+        for result := range results </span>{
+                <span class="cov0" title="0">fmt.Println(result)
+</span>        }
+        <span class="cov0" title="0">fmt.Println("[*] Port scan completed.")</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package main
+
+import (
+        "bufio"
+        "bytes"
+        "encoding/json"
+        "fmt"
+        "io"
+        "net/http"
+        "net/url"
+        "os"
+        "strings"
+        "time"
+)
+
+const maxSplunkEventLineBytes = 5 &lt;&lt; 20
+
+type SplunkHECPayload struct {
+        Time       int64           `json:"time"`
+        Host       string          `json:"host"`
+        Source     string          `json:"source,omitempty"`
+        SourceType string          `json:"sourcetype"`
+        Event      json.RawMessage `json:"event"`
+}
+
+// ShipAttackPathsToSplunk sends detailed NodeZero attack-path metadata to Splunk HEC.
+func ShipAttackPathsToSplunk(paths []DetailedAttackPath) error {
+        <span class="cov8" title="1">splunkURL := os.Getenv("SPLUNK_HEC_URL")
+        splunkToken := os.Getenv("SPLUNK_HEC_TOKEN")
+        if strings.TrimSpace(splunkURL) == "" || strings.TrimSpace(splunkToken) == "" </span>{
+                <span class="cov8" title="1">return fmt.Errorf("SPLUNK_HEC_URL and SPLUNK_HEC_TOKEN environment variables must be set")
+</span>        }
+
+        <span class="cov8" title="1">endpoint, err := splunkHECEndpoint(splunkURL)
+        if err != nil </span>{
+                <span class="cov0" title="0">return err
+</span>        }
+        <span class="cov8" title="1">client := &amp;http.Client{Timeout: 10 * time.Second}
+</span>
+        <span class="cov8" title="1">for _, path := range paths </span>{
+                <span class="cov8" title="1">event, err := json.Marshal(path)
+                if err != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("encode NodeZero attack path %q: %w", path.ID, err)
+</span>                }
+                <span class="cov8" title="1">body, err := json.Marshal(SplunkHECPayload{
+                        Time:       time.Now().Unix(),
+                        Host:       "nodezero-scanner-01",
+                        Source:     "nodezero_ai_offensive",
+                        SourceType: "_json",
+                        Event:      event,
+                })
+                if err != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("encode Splunk HEC payload for NodeZero attack path %q: %w", path.ID, err)
+</span>                }
+
+                <span class="cov8" title="1">req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+                if err != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("create Splunk HEC request for NodeZero attack path %q: %w", path.ID, err)
+</span>                }
+                <span class="cov8" title="1">req.Header.Set("Authorization", "Splunk "+splunkToken)
+                req.Header.Set("Content-Type", "application/json")
+</span>
+                <span class="cov8" title="1">resp, err := client.Do(req)
+                if err != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("send NodeZero attack path %q to Splunk HEC: %w", path.ID, err)
+</span>                }
+                <span class="cov8" title="1">_, readErr := io.Copy(io.Discard, resp.Body)
+                closeErr := resp.Body.Close()
+                if readErr != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("read Splunk HEC response for NodeZero attack path %q: %w", path.ID, readErr)
+</span>                }
+                <span class="cov8" title="1">if closeErr != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("close Splunk HEC response for NodeZero attack path %q: %w", path.ID, closeErr)
+</span>                }
+                <span class="cov8" title="1">if resp.StatusCode &lt; http.StatusOK || resp.StatusCode &gt;= http.StatusMultipleChoices </span>{
+                        <span class="cov8" title="1">return fmt.Errorf("Splunk HEC rejected NodeZero attack path %q: unexpected HTTP status %s", path.ID, resp.Status)
+</span>                }
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+// ShipRecoveryEventsToSplunk sends recovered-file metadata to Splunk HEC.
+func ShipRecoveryEventsToSplunk(events []RecoveryEvent) error {
+        <span class="cov8" title="1">if len(events) == 0 </span>{
+                <span class="cov0" title="0">return nil
+</span>        }
+        <span class="cov8" title="1">splunkURL := os.Getenv("SPLUNK_HEC_URL")
+        splunkToken := os.Getenv("SPLUNK_HEC_TOKEN")
+        if strings.TrimSpace(splunkURL) == "" || strings.TrimSpace(splunkToken) == "" </span>{
+                <span class="cov0" title="0">return fmt.Errorf("SPLUNK_HEC_URL and SPLUNK_HEC_TOKEN environment variables must be set")
+</span>        }
+
+        <span class="cov8" title="1">endpoint, err := splunkHECEndpoint(splunkURL)
+        if err != nil </span>{
+                <span class="cov0" title="0">return err
+</span>        }
+        <span class="cov8" title="1">client := &amp;http.Client{Timeout: 10 * time.Second}
+</span>
+        <span class="cov8" title="1">for _, recoveryEvent := range events </span>{
+                <span class="cov8" title="1">event, err := json.Marshal(recoveryEvent)
+                if err != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("encode recovered-file event at offset %d: %w", recoveryEvent.OffsetStart, err)
+</span>                }
+                <span class="cov8" title="1">body, err := json.Marshal(SplunkHECPayload{
+                        Time:       time.Now().Unix(),
+                        Host:       "local-scanner-node",
+                        Source:     "Ovim-Gallery-Carver",
+                        SourceType: "_json",
+                        Event:      event,
+                })
+                if err != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("encode Splunk HEC payload for recovered file at offset %d: %w", recoveryEvent.OffsetStart, err)
+</span>                }
+
+                <span class="cov8" title="1">req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+                if err != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("create Splunk HEC request for recovered file at offset %d: %w", recoveryEvent.OffsetStart, err)
+</span>                }
+                <span class="cov8" title="1">req.Header.Set("Authorization", "Splunk "+splunkToken)
+                req.Header.Set("Content-Type", "application/json")
+</span>
+                <span class="cov8" title="1">resp, err := client.Do(req)
+                if err != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("send recovered-file event at offset %d to Splunk HEC: %w", recoveryEvent.OffsetStart, err)
+</span>                }
+                <span class="cov8" title="1">_, readErr := io.Copy(io.Discard, resp.Body)
+                closeErr := resp.Body.Close()
+                if readErr != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("read Splunk HEC response for recovered file at offset %d: %w", recoveryEvent.OffsetStart, readErr)
+</span>                }
+                <span class="cov8" title="1">if closeErr != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("close Splunk HEC response for recovered file at offset %d: %w", recoveryEvent.OffsetStart, closeErr)
+</span>                }
+                <span class="cov8" title="1">if resp.StatusCode &lt; http.StatusOK || resp.StatusCode &gt;= http.StatusMultipleChoices </span>{
+                        <span class="cov8" title="1">return fmt.Errorf("Splunk HEC rejected recovered-file event at offset %d: unexpected HTTP status %s", recoveryEvent.OffsetStart, resp.Status)
+</span>                }
+        }
+        <span class="cov8" title="1">return nil</span>
+}
+
+func splunkHECEndpoint(rawURL string) (string, error) {
+        <span class="cov8" title="1">parsed, err := url.Parse(rawURL)
+        if err != nil || parsed.Host == "" ||
+                (parsed.Scheme != "https" &amp;&amp; parsed.Scheme != "http") ||
+                parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" </span>{
+                <span class="cov0" title="0">return "", fmt.Errorf("invalid SPLUNK_HEC_URL")
+</span>        }
+        <span class="cov8" title="1">if !strings.HasSuffix(strings.TrimRight(parsed.Path, "/"), "/services/collector") </span>{
+                <span class="cov8" title="1">parsed.Path = strings.TrimRight(parsed.Path, "/") + "/services/collector"
+</span>        }
+        <span class="cov8" title="1">return parsed.String(), nil</span>
+}
+
+// ShipLogFileToSplunk sends each JSON object in a JSONL file to Splunk HEC.
+func ShipLogFileToSplunk(logPath, hecURL, hecToken string) error {
+        <span class="cov8" title="1">file, err := os.Open(logPath)
+        if err != nil </span>{
+                <span class="cov0" title="0">return fmt.Errorf("open security event log: %w", err)
+</span>        }
+        <span class="cov8" title="1">defer file.Close()
+</span>
+        <span class="cov8" title="1">scanner := bufio.NewScanner(file)
+        scanner.Buffer(make([]byte, 64*1024), maxSplunkEventLineBytes)
+        client := &amp;http.Client{Timeout: 10 * time.Second}
+</span>
+        <span class="cov8" title="1">for lineNumber := 1; scanner.Scan(); lineNumber++ </span>{
+                <span class="cov8" title="1">line := bytes.TrimSpace(scanner.Bytes())
+                if len(line) == 0 </span>{
+                        <span class="cov8" title="1">continue</span>
+                }
+
+                <span class="cov8" title="1">var event map[string]json.RawMessage
+                if err := json.Unmarshal(line, &amp;event); err != nil </span>{
+                        <span class="cov8" title="1">return fmt.Errorf("decode security event log line %d: %w", lineNumber, err)
+</span>                }
+                <span class="cov8" title="1">if event == nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("decode security event log line %d: expected a JSON object", lineNumber)
+</span>                }
+
+                <span class="cov8" title="1">payload := SplunkHECPayload{
+                        Time:       time.Now().Unix(),
+                        Host:       "local-scanner-node",
+                        SourceType: "xbow:findings:json",
+                        Event:      append(json.RawMessage(nil), line...),
+</span>                }
+                <span class="cov8" title="1">body, err := json.Marshal(payload)
+                if err != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("encode Splunk HEC payload for line %d: %w", lineNumber, err)
+</span>                }
+
+                <span class="cov8" title="1">req, err := http.NewRequest(http.MethodPost, hecURL, bytes.NewReader(body))
+                if err != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("create Splunk HEC request for line %d: %w", lineNumber, err)
+</span>                }
+                <span class="cov8" title="1">req.Header.Set("Authorization", "Splunk "+hecToken)
+                req.Header.Set("Content-Type", "application/json")
+</span>
+                <span class="cov8" title="1">resp, err := client.Do(req)
+                if err != nil </span>{
+                        <span class="cov0" title="0">return fmt.Errorf("ship security event on line %d: %w", lineNumber, err)
+</span>                }
+                <span class="cov8" title="1">resp.Body.Close()
+                if resp.StatusCode &lt; http.StatusOK || resp.StatusCode &gt;= http.StatusMultipleChoices </span>{
+                        <span class="cov8" title="1">return fmt.Errorf("ship security event on line %d: unexpected HTTP status %s", lineNumber, resp.Status)
+</span>                }
+        }
+        <span class="cov8" title="1">if err := scanner.Err(); err != nil </span>{
+                <span class="cov0" title="0">return fmt.Errorf("read security event log: %w", err)
+</span>        }
+        <span class="cov8" title="1">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package main
+
+import (
+        "crypto/rand"
+        "encoding/hex"
+        "fmt"
+        "log"
+        "net"
+        "net/http"
+        "net/url"
+        "strings"
+        "sync"
+        "time"
+)
+
+func GenerateTrackingToken(length int) (string, error) {
+        <span class="cov8" title="1">if length &lt;= 0 </span>{
+                <span class="cov8" title="1">return "", fmt.Errorf("tracking token length must be positive")
+</span>        }
+        <span class="cov8" title="1">bytes := make([]byte, length)
+        if _, err := rand.Read(bytes); err != nil </span>{
+                <span class="cov0" title="0">return "", err
+</span>        }
+        <span class="cov8" title="1">return hex.EncodeToString(bytes), nil</span>
+}
+
+type trackingLinkStore struct {
+        mu    sync.Mutex
+        links map[string]TrackingLink
+}
+
+type TrackingLink struct {
+        ID         string    `json:"id"`
+        TargetURL  string    `json:"target_url"`
+        CreatedAt  time.Time `json:"created_at"`
+        ClickCount int       `json:"click_count"`
+}
+
+var defaultTrackingLinkStore = &amp;trackingLinkStore{links: make(map[string]TrackingLink)}
+
+func CreateTrackingLink(targetURL string) (string, error) {
+        <span class="cov8" title="1">parsedURL, err := url.Parse(targetURL)
+        if err != nil || !parsedURL.IsAbs() || parsedURL.Host == "" ||
+                (strings.ToLower(parsedURL.Scheme) != "http" &amp;&amp; strings.ToLower(parsedURL.Scheme) != "https") || parsedURL.User != nil </span>{
+                <span class="cov8" title="1">return "", fmt.Errorf("tracking target must be an absolute HTTP or HTTPS URL")
+</span>        }
+        <span class="cov8" title="1">parsedURL.Scheme = strings.ToLower(parsedURL.Scheme)
+</span>
+        <span class="cov8" title="1">for </span>{
+                <span class="cov8" title="1">token, err := GenerateTrackingToken(32)
+                if err != nil </span>{
+                        <span class="cov0" title="0">return "", fmt.Errorf("generate tracking token: %w", err)
+</span>                }
+
+                <span class="cov8" title="1">defaultTrackingLinkStore.mu.Lock()
+                if _, exists := defaultTrackingLinkStore.links[token]; !exists </span>{
+                        <span class="cov8" title="1">defaultTrackingLinkStore.links[token] = TrackingLink{
+                                ID:        token,
+                                TargetURL: parsedURL.String(),
+                                CreatedAt: time.Now().UTC(),
+</span>                        }
+                        <span class="cov8" title="1">defaultTrackingLinkStore.mu.Unlock()
+                        return token, nil
+</span>                }
+                <span class="cov0" title="0">defaultTrackingLinkStore.mu.Unlock()</span>
+        }
+}
+
+func HandleTrackClick(w http.ResponseWriter, r *http.Request) {
+        <span class="cov8" title="1">handleTrackClick(defaultTrackingLinkStore, w, r)
+</span>}
+
+func handleTrackClick(store *trackingLinkStore, w http.ResponseWriter, r *http.Request) {
+        <span class="cov8" title="1">token := r.URL.Query().Get("token")
+        if token == "" </span>{
+                <span class="cov8" title="1">http.Error(w, "Missing tracking token", http.StatusBadRequest)
+                return
+</span>        }
+
+        <span class="cov8" title="1">store.mu.Lock()
+        link, exists := store.links[token]
+        if exists </span>{
+                <span class="cov8" title="1">link.ClickCount++
+                store.links[token] = link
+</span>        }
+        <span class="cov8" title="1">store.mu.Unlock()
+</span>
+        <span class="cov8" title="1">if !exists </span>{
+                <span class="cov8" title="1">http.NotFound(w, r)
+                return
+</span>        }
+
+        <span class="cov8" title="1">clientIP := "unknown"
+        if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil &amp;&amp; net.ParseIP(host) != nil </span>{
+                <span class="cov8" title="1">clientIP = host
+</span>        } else <span class="cov0" title="0">if net.ParseIP(r.RemoteAddr) != nil </span>{
+                <span class="cov0" title="0">clientIP = r.RemoteAddr
+</span>        }
+        <span class="cov8" title="1">log.Printf("Tracking click token=%s ip=%s user_agent=%q timestamp=%s",
+                token, clientIP, r.UserAgent(), time.Now().UTC().Format(time.RFC3339Nano))
+        http.Redirect(w, r, link.TargetURL, http.StatusFound)</span>
+}
+
+func handleTrackingRequest(w http.ResponseWriter, r *http.Request) {
+        <span class="cov8" title="1">clientIP := "unknown"
+        if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil &amp;&amp; net.ParseIP(host) != nil </span>{
+                <span class="cov8" title="1">clientIP = host
+</span>        } else <span class="cov0" title="0">if net.ParseIP(r.RemoteAddr) != nil </span>{
+                <span class="cov0" title="0">clientIP = r.RemoteAddr
+</span>        }
+
+        <span class="cov8" title="1">log.Printf("Received tracking request from IP: %s", clientIP)
+        w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+        w.WriteHeader(http.StatusOK)
+        if _, err := fmt.Fprint(w, "Access Logged"); err != nil </span>{
+                <span class="cov0" title="0">log.Printf("Failed to write tracking response: %v", err)
+</span>        }
+}
+
+func newTrackingHandler() http.Handler {
+        <span class="cov8" title="1">mux := http.NewServeMux()
+        mux.HandleFunc("/track", handleTrackingRequest)
+        mux.HandleFunc("/click", HandleTrackClick)
+        return mux
+</span>}
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package main
+
+import (
+        "encoding/json"
+        "fmt"
+        "io"
+        "net/http"
+        "net/url"
+        "os"
+        "strings"
+        "time"
+)
+
+const xbowAPIVersion = "2026-08-01"
+const xbowVersion = xbowAPIVersion
+const maxXBOWResponseBytes = 5 &lt;&lt; 20
+
+type XBOWClient struct {
+        APIKey  string
+        BaseURL string
+        Client  *http.Client
+        LogPath string
+}
+
+type Finding struct {
+        ID          string `json:"id"`
+        Severity    string `json:"severity"`
+        Name        string `json:"name"`
+        CVE         string `json:"cve"`
+        CWE         string `json:"cwe"`
+        Description string `json:"description"`
+}
+
+type xbowFindingLogEntry struct {
+        Timestamp   string `json:"timestamp"`
+        Source      string `json:"source"`
+        EventID     string `json:"event_id"`
+        AssetID     string `json:"asset_id"`
+        Severity    string `json:"severity"`
+        Name        string `json:"name"`
+        CVE         string `json:"cve"`
+        CWE         string `json:"cwe"`
+        Description string `json:"description"`
+}
+
+func NewXBOWClient(apiKey string) *XBOWClient {
+        <span class="cov8" title="1">baseURL := os.Getenv("XBOW_API_URL")
+        if baseURL == "" </span>{
+                <span class="cov8" title="1">baseURL = "https://api.xbow.com/api/v1"
+</span>        }
+        <span class="cov8" title="1">return &amp;XBOWClient{
+                APIKey:  apiKey,
+                BaseURL: baseURL,
+                Client:  &amp;http.Client{Timeout: 15 * time.Second},
+                LogPath: "security_events.log",
+</span>        }
+}
+
+// FetchAndLogFindings retrieves findings for one asset and appends them as JSONL.
+func (x *XBOWClient) FetchAndLogFindings(assetID string) ([]Finding, error) {
+        <span class="cov8" title="1">if strings.TrimSpace(x.APIKey) == "" </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("XBOW API key is required")
+</span>        }
+        <span class="cov8" title="1">if assetID == "" || assetID == "." || assetID == ".." </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("invalid XBOW asset ID")
+</span>        }
+        <span class="cov8" title="1">for _, r := range assetID </span>{
+                <span class="cov8" title="1">if !((r &gt;= 'a' &amp;&amp; r &lt;= 'z') || (r &gt;= 'A' &amp;&amp; r &lt;= 'Z') ||
+                        (r &gt;= '0' &amp;&amp; r &lt;= '9') || strings.ContainsRune("._~-", r)) </span>{
+                        <span class="cov8" title="1">return nil, fmt.Errorf("invalid XBOW asset ID")
+</span>                }
+        }
+        <span class="cov8" title="1">if x.Client == nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("XBOW HTTP client is not configured")
+</span>        }
+        <span class="cov8" title="1">if x.BaseURL == "" </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("XBOW API base URL is not configured")
+</span>        }
+
+        <span class="cov8" title="1">endpoint := strings.TrimRight(x.BaseURL, "/") + "/assets/" + url.PathEscape(assetID) + "/findings"
+        req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("create XBOW findings request: %w", err)
+</span>        }
+        <span class="cov8" title="1">req.Header.Set("Authorization", "Bearer "+x.APIKey)
+        req.Header.Set("X-XBOW-API-Version", xbowAPIVersion)
+        req.Header.Set("Accept", "application/json")
+</span>
+        <span class="cov8" title="1">resp, err := x.Client.Do(req)
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("fetch XBOW findings: %w", err)
+</span>        }
+        <span class="cov8" title="1">defer resp.Body.Close()
+</span>
+        <span class="cov8" title="1">if resp.StatusCode &lt; http.StatusOK || resp.StatusCode &gt;= http.StatusMultipleChoices </span>{
+                <span class="cov8" title="1">return nil, fmt.Errorf("fetch XBOW findings: unexpected HTTP status %s", resp.Status)
+</span>        }
+
+        <span class="cov8" title="1">responseBody, err := io.ReadAll(io.LimitReader(resp.Body, maxXBOWResponseBytes+1))
+        if err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("read XBOW findings response: %w", err)
+</span>        }
+        <span class="cov8" title="1">if len(responseBody) &gt; maxXBOWResponseBytes </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("XBOW findings response exceeds %d bytes", maxXBOWResponseBytes)
+</span>        }
+
+        <span class="cov8" title="1">var findings []Finding
+        if err := json.Unmarshal(responseBody, &amp;findings); err != nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("decode XBOW findings response: %w", err)
+</span>        }
+        <span class="cov8" title="1">if findings == nil </span>{
+                <span class="cov0" title="0">return nil, fmt.Errorf("decode XBOW findings response: expected a JSON array")
+</span>        }
+
+        <span class="cov8" title="1">file, err := os.OpenFile(x.LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+        if err != nil </span>{
+                <span class="cov0" title="0">return findings, fmt.Errorf("open security event log: %w", err)
+</span>        }
+        <span class="cov8" title="1">for _, finding := range findings </span>{
+                <span class="cov8" title="1">entry := xbowFindingLogEntry{
+                        Timestamp:   time.Now().UTC().Format(time.RFC3339),
+                        Source:      "XBOW",
+                        EventID:     finding.ID,
+                        AssetID:     assetID,
+                        Severity:    finding.Severity,
+                        Name:        finding.Name,
+                        CVE:         finding.CVE,
+                        CWE:         finding.CWE,
+                        Description: finding.Description,
+</span>                }
+                <span class="cov8" title="1">line, err := json.Marshal(entry)
+                if err != nil </span>{
+                        <span class="cov0" title="0">_ = file.Close()
+                        return findings, fmt.Errorf("encode XBOW finding for security log: %w", err)
+</span>                }
+                <span class="cov8" title="1">line = append(line, '\n')
+                written, err := file.Write(line)
+                if err != nil </span>{
+                        <span class="cov0" title="0">_ = file.Close()
+                        return findings, fmt.Errorf("write XBOW finding to security log: %w", err)
+</span>                }
+                <span class="cov8" title="1">if written != len(line) </span>{
+                        <span class="cov0" title="0">_ = file.Close()
+                        return findings, fmt.Errorf("write XBOW finding to security log: %w", io.ErrShortWrite)
+</span>                }
+        }
+        <span class="cov8" title="1">if err := file.Close(); err != nil </span>{
+                <span class="cov0" title="0">return findings, fmt.Errorf("close security event log: %w", err)
+</span>        }
+        <span class="cov8" title="1">return findings, nil</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
