@@ -15,6 +15,10 @@ type SecurityEvent struct {
 	Timestamp string `json:"timestamp"`
 	EventType string `json:"event_type"`
 	Status    string `json:"status"`
+	Source    string `json:"source,omitempty"`
+	EventID   string `json:"event_id,omitempty"`
+	Severity  string `json:"severity,omitempty"`
+	Details   string `json:"details,omitempty"`
 }
 
 type hecEvent struct {
