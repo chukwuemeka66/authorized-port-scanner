@@ -73,6 +73,8 @@
 				
 				<option value="file8">authorized-port-scanner/xbow.go (69.0%)</option>
 				
+				<option value="file9">authorized-port-scanner/xdr.go (79.5%)</option>
+				
 				</select>
 			</div>
 			<div id="legend">
@@ -455,6 +457,10 @@ type SecurityEvent struct {
         Timestamp string `json:"timestamp"`
         EventType string `json:"event_type"`
         Status    string `json:"status"`
+        Source    string `json:"source,omitempty"`
+        EventID   string `json:"event_id,omitempty"`
+        Severity  string `json:"severity,omitempty"`
+        Details   string `json:"details,omitempty"`
 }
 
 type hecEvent struct {
@@ -1488,6 +1494,87 @@ func (x *XBOWClient) FetchAndLogFindings(assetID string) ([]Finding, error) {
                 <span class="cov0" title="0">return findings, fmt.Errorf("close security event log: %w", err)
 </span>        }
         <span class="cov8" title="1">return findings, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package main
+
+import (
+        "bytes"
+        "encoding/json"
+        "fmt"
+        "io"
+        "net"
+        "net/http"
+        "net/url"
+        "strings"
+        "time"
+)
+
+func validateXDREndpoint(rawURL string) error {
+        <span class="cov8" title="1">parsed, err := url.Parse(rawURL)
+        if err != nil || parsed.Hostname() == "" || parsed.User != nil ||
+                parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" </span>{
+                <span class="cov8" title="1">return fmt.Errorf("invalid XDR endpoint URL")
+</span>        }
+        <span class="cov8" title="1">if parsed.Scheme == "https" </span>{
+                <span class="cov0" title="0">return nil
+</span>        }
+        <span class="cov8" title="1">if parsed.Scheme == "http" </span>{
+                <span class="cov8" title="1">host := parsed.Hostname()
+                if strings.EqualFold(host, "localhost") </span>{
+                        <span class="cov0" title="0">return nil
+</span>                }
+                <span class="cov8" title="1">if ip := net.ParseIP(host); ip != nil &amp;&amp; ip.IsLoopback() </span>{
+                        <span class="cov8" title="1">return nil
+</span>                }
+        }
+        <span class="cov8" title="1">return fmt.Errorf("XDR endpoint must use HTTPS (HTTP is allowed only for loopback tests)")</span>
+}
+
+// ForwardToXDR sends a security event to an XDR endpoint using bearer-token authentication.
+func ForwardToXDR(endpointURL, apiKey string, event SecurityEvent) error {
+        <span class="cov8" title="1">if strings.TrimSpace(apiKey) == "" </span>{
+                <span class="cov8" title="1">return fmt.Errorf("XDR API key is required")
+</span>        }
+        <span class="cov8" title="1">if err := validateXDREndpoint(endpointURL); err != nil </span>{
+                <span class="cov8" title="1">return err
+</span>        }
+
+        <span class="cov8" title="1">body, err := json.Marshal(event)
+        if err != nil </span>{
+                <span class="cov0" title="0">return fmt.Errorf("encode XDR security event: %w", err)
+</span>        }
+        <span class="cov8" title="1">req, err := http.NewRequest(http.MethodPost, endpointURL, bytes.NewReader(body))
+        if err != nil </span>{
+                <span class="cov0" title="0">return fmt.Errorf("create XDR request: %w", err)
+</span>        }
+        <span class="cov8" title="1">req.Header.Set("Authorization", "Bearer "+apiKey)
+        req.Header.Set("Content-Type", "application/json")
+        req.Header.Set("Accept", "application/json")
+</span>
+        <span class="cov8" title="1">client := &amp;http.Client{
+                Timeout: 10 * time.Second,
+                CheckRedirect: func(_ *http.Request, _ []*http.Request) error </span>{
+                        <span class="cov0" title="0">return http.ErrUseLastResponse
+</span>                },
+        }
+        <span class="cov8" title="1">resp, err := client.Do(req)
+        if err != nil </span>{
+                <span class="cov0" title="0">return fmt.Errorf("send XDR security event: %w", err)
+</span>        }
+        <span class="cov8" title="1">_, readErr := io.Copy(io.Discard, io.LimitReader(resp.Body, 4&lt;&lt;10))
+        closeErr := resp.Body.Close()
+        if readErr != nil </span>{
+                <span class="cov0" title="0">return fmt.Errorf("read XDR response: %w", readErr)
+</span>        }
+        <span class="cov8" title="1">if closeErr != nil </span>{
+                <span class="cov0" title="0">return fmt.Errorf("close XDR response: %w", closeErr)
+</span>        }
+        <span class="cov8" title="1">if resp.StatusCode &lt; http.StatusOK || resp.StatusCode &gt;= http.StatusMultipleChoices </span>{
+                <span class="cov8" title="1">return fmt.Errorf("XDR endpoint returned unexpected HTTP status %s", resp.Status)
+</span>        }
+        <span class="cov8" title="1">return nil</span>
 }
 </pre>
 		
